@@ -1,0 +1,12 @@
+{
+  "name": "harvestlink",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HarvestLink: Direct farmer-to-buyer marketplace for fresh produce in India",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:vitest": "vitest run"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    function isFarmer() {
+      return isAuthenticated() && getUserData().role == 'farmer';
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // Farmer Profiles
+    match /farmerProfiles/{farmerId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.auth.uid == farmerId || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // Products collection
+    match /products/{productId} {
+      // Anyone authenticated can read active, unflagged products; owners and admins can read any
+      allow read: if isAuthenticated() && (
+        resource.data.isActive == true && resource.data.flagged == false
+        || resource.data.farmerId == request.auth.uid
+        || isAdmin()
+      );
+      
+      // Only farmers can create products for themselves, or admins
+      allow create: if isAuthenticated() && (
+        (isFarmer() && request.resource.data.farmerId == request.auth.uid)
+        || isAdmin()
+      );
+      
+      // Only the owning farmer or admin can update product details
+      // Or in transactions for order stock decrements/restorations
+      allow update: if isAuthenticated() && (
+        resource.data.farmerId == request.auth.uid 
+        || isAdmin()
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantityAvailable']))
+      );
+      
+      allow delete: if isAuthenticated() && (
+        resource.data.farmerId == request.auth.uid || isAdmin()
+      );
+    }
+    
+    // Orders collection
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        resource.data.buyerId == request.auth.uid
+        || resource.data.farmerId == request.auth.uid
+        || isAdmin()
+      );
+      
+      // Buyer can create an order for themselves
+      allow create: if isAuthenticated() && request.resource.data.buyerId == request.auth.uid;
+      
+      // Buyer can cancel when status == 'requested'; Farmer can transition requested -> accepted -> ready -> completed, or reject; Admin can update
+      allow update: if isAuthenticated() && (
+        isAdmin()
+        || (resource.data.buyerId == request.auth.uid && resource.data.status == 'requested' && request.resource.data.status == 'cancelled')
+        || (resource.data.farmerId == request.auth.uid)
+      );
+      
+      allow delete: if isAdmin();
+    }
+    
+    // Order Items collection
+    match /orderItems/{itemId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

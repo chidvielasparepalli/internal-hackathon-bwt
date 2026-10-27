@@ -1,0 +1,6 @@
+{
+  "name": "HarvestLink",
+  "description": "Direct farmer-to-buyer marketplace for fresh produce in India with live inventory, transparent order lifecycle, and admin moderation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
